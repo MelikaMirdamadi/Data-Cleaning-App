@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 import PyPDF2
 import docx
 import re
@@ -8,13 +8,18 @@ import os
 from langdetect import detect
 
 # تابع تمیز کردن فایل PDF
-def clean_pdf(file_path, regex_patterns):
+def clean_pdf(file_path, regex_patterns, progress_bar):
     try:
         with open(file_path, 'rb') as pdf_file:
             reader = PyPDF2.PdfReader(pdf_file)
             output_text = ""
-            for page in range(len(reader.pages)):
+            num_pages = len(reader.pages)
+
+            # پردازش هر صفحه و به‌روزرسانی نوار پیشرفت
+            for page in range(num_pages):
                 output_text += reader.pages[page].extract_text()
+                progress_bar['value'] = (page + 1) / num_pages * 100  # به‌روزرسانی نوار پیشرفت
+                root.update_idletasks()  # به‌روزرسانی رابط کاربری
 
             # تشخیص زبان
             language = detect(output_text)
@@ -29,7 +34,7 @@ def clean_pdf(file_path, regex_patterns):
         messagebox.showerror("خطا", f"مشکلی پیش آمده: {str(e)}")
 
 # تابع تمیز کردن فایل Word
-def clean_word(file_path, regex_patterns):
+def clean_word(file_path, regex_patterns, progress_bar):
     try:
         doc = docx.Document(file_path)
         output_text = "\n".join([para.text for para in doc.paragraphs])
@@ -71,31 +76,35 @@ def save_cleaned_output(file_path, cleaned_text, language):
 # تابع برای انتخاب فایل و نوع فایل
 def browse_file():
     file_path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf"), ("Word Files", "*.docx")])
-    if file_path:
+    if file_path:  # بررسی اینکه آیا کاربر فایلی انتخاب کرده است
         regex_patterns = [
-            (r'[;:\[\]\|\_\?!■]', ''),
-            (r'(-{2,})', '-'),
-            (r'(/{2,})', '/'),
-            (r'(\.{2,})', '.'),
-            (r'(n\\{3,})', '\n'),
-            
-            # اینجا می‌توانید الگوهای بیشتری اضافه کنید
+            (r'[;:\[\]\|\_\?!■]', ''),  # حذف علائم اضافی
+            (r'(-{2,})', '-'),  # کاهش تعداد خط تیره‌های متوالی
+            (r'(/{2,})', '/'),  # کاهش تعداد اسلش‌های متوالی
+            (r'(\.{2,})', '.'),  # کاهش تعداد نقطه‌های متوالی
+            (r'(\n{3,})', '\n\n'),  # کاهش تعداد خط جدید متوالی
+            (r'\s+', ' ')  # حذف فضاهای خالی اضافی
         ]
+        progress_bar['value'] = 0  # تنظیم نوار پیشرفت به صفر
         if file_path.endswith(".pdf"):
-            clean_pdf(file_path, regex_patterns)
+            clean_pdf(file_path, regex_patterns, progress_bar)
         elif file_path.endswith(".docx"):
-            clean_word(file_path, regex_patterns)
+            clean_word(file_path, regex_patterns, progress_bar)
 
 # ساخت رابط کاربری (GUI)
 root = tk.Tk()
-root.title("برنامه تمیزکننده فایل‌ها")
-root.geometry("300x150")
+root.title("برنامه پاكسازي داده ")
+root.geometry("400x200")
 
-label = tk.Label(root, text="فایل PDF یا Word خود را انتخاب کنید:")
+label = tk.Label(root, text="please select PDF or Word file:")
 label.pack(pady=10)
 
 browse_button = tk.Button(root, text="انتخاب فایل", command=browse_file)
 browse_button.pack(pady=10)
+
+# افزودن نوار پیشرفت
+progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate" )
+progress_bar.pack(pady=10)
 
 # اجرای برنامه
 root.mainloop()
