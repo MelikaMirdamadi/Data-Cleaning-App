@@ -5,6 +5,7 @@ import docx
 import re
 import json
 import os
+import pandas as pd
 from langdetect import detect
 import functools
 from transformers import LongformerTokenizer
@@ -85,6 +86,41 @@ def clean_word(file_path, regex_patterns, progress_bar):
     except Exception as e:
         messagebox.showerror("خطا", f"مشکلی پیش آمده: {str(e)}")
 
+# تابع تمیز کردن فایل Excel
+def clean_excel(file_path, regex_patterns, progress_bar):
+    try:
+        # بارگذاری فایل Excel
+        df = pd.read_excel(file_path, engine="openpyxl")
+
+        # آماده‌سازی الگوهای خروجی
+        template = {"file_name": os.path.basename(file_path), "languages": "eng+fas", "Chunk": None}
+        state = []
+        chunk_raw_size = 6
+        perv_faq = ""
+
+        # پردازش سطرهای DataFrame
+        for index_raw, (index, row) in enumerate(df.iterrows()):
+            question = row["Unnamed: 0"]  #Unnamed: 0
+            answer = row["پاسخ"]
+
+            perv_faq += f"\nQuestion : {question} -> Answer : {answer}" + "-" * 15
+            if ((index_raw + 1) % chunk_raw_size) == 0:
+                state.append(perv_faq.strip())
+                perv_faq = ""
+
+        template["Chunk"] = list(set(state))
+        json_data = json.dumps(template, indent=4, ensure_ascii=False)
+
+        # ذخیره‌سازی به فایل JSON
+        json_file_path = f"{os.path.splitext(file_path)[0]}_faqs.json"
+        with open(json_file_path, "w", encoding="utf-8") as f:
+            f.write(json_data)
+
+        messagebox.showinfo("موفقیت", f"فایل تمیز شد و به صورت JSON در {json_file_path} ذخیره شد.")
+
+    except Exception as e:
+        messagebox.showerror("خطا", f"مشکلی پیش آمده: {str(e)}")
+
 # تابع ذخیره خروجی تمیز شده در قالب JSON
 def save_cleaned_output(file_path, chunks, language):
     output_data = {
@@ -108,7 +144,7 @@ def apply_regex(text, regex_patterns):
 
 # تابع انتخاب فایل
 def browse_file():
-    file_path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf"), ("Word Files", "*.docx"), ("All Files", "*.*")])
+    file_path = filedialog.askopenfilename(filetypes=[("PDF Files", "*.pdf"), ("Word Files", "*.docx"), ("Excel Files", "*.xlsx"), ("All Files", "*.*")])
     if file_path:
         regex_patterns = [
             (r'[;:\[\]\|\_\?!■]', ''),  
@@ -117,29 +153,35 @@ def browse_file():
             (r'(\.{2,})', '.'),
             (r'(\n{3,})', '\n\n'), 
             (r'\s+', ' '),  
-            (r'\.' , ''),
+            (r'\.' , ''), 
             (r"\…{2,}" , ''),
-            # (r'\d+\s*/\s*.*', ''),  # حذف فهرست‌هایی که با / جدا شده‌اند
-            (r'.*\.{2,}\s*\d+', '')  # حذف فهرست‌هایی که با نقطه و شماره صفحه هستند            
+            # (r"\–{2,}" , '–'),
         ]
         progress_bar['value'] = 0  # تنظیم مقدار اولیه نوار پیشرفت
         if file_path.endswith(".pdf"):
             clean_pdf(file_path, regex_patterns, progress_bar)
         elif file_path.endswith(".docx"):
             clean_word(file_path, regex_patterns, progress_bar)
+        elif file_path.endswith(".xlsx"):
+            clean_excel(file_path, regex_patterns, progress_bar)
 
 # ساخت رابط کاربری
 root = tk.Tk()
 root.title("برنامه پاکسازی داده ها")
-root.geometry("400x200")
+root.geometry("500x300")
+root.configure(bg="#f0f0f0")
 
-label = tk.Label(root, text="لطفا فايل خود را انتخاب كنيد", font=("Helvetica", 13 , "bold"))
+label = tk.Label(root, text="لطفا فايل خود را انتخاب كنيد", font=("Helvetica", 13, "bold"), bg="#f0f0f0")
 label.pack(pady=10)
 
-browse_button = tk.Button(root, text="انتخاب فایل", command=browse_file , bg="blue", fg="white")
+browse_button = tk.Button(root, text="انتخاب فایل", command=browse_file, bg="blue", fg="white")
 browse_button.pack(pady=10)
 
-progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
+progress_bar = ttk.Progressbar(root, orient="horizontal", length=400, mode="determinate")
 progress_bar.pack(pady=10)
+
+# اضافه کردن فریم تنظیمات
+settings_frame = tk.Frame(root, bg="#f0f0f0")
+settings_frame.pack(pady=10)
 
 root.mainloop()
