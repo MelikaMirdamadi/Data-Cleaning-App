@@ -118,7 +118,9 @@ def browse_file():
             (r'(\n{3,})', '\n\n'), 
             (r'\s+', ' '),  
             (r'\.' , ''),
-            (r"\…{2,}" , '')
+            (r"\…{2,}" , ''),
+            # (r'\d+\s*/\s*.*', ''),  # حذف فهرست‌هایی که با / جدا شده‌اند
+            (r'.*\.{2,}\s*\d+', '')  # حذف فهرست‌هایی که با نقطه و شماره صفحه هستند            
         ]
         progress_bar['value'] = 0  # تنظیم مقدار اولیه نوار پیشرفت
         if file_path.endswith(".pdf"):
@@ -131,10 +133,10 @@ root = tk.Tk()
 root.title("برنامه پاکسازی داده ها")
 root.geometry("400x200")
 
-label = tk.Label(root, text="Please Select PDF or WORD file:")
+label = tk.Label(root, text="لطفا فايل خود را انتخاب كنيد", font=("Helvetica", 13 , "bold"))
 label.pack(pady=10)
 
-browse_button = tk.Button(root, text="انتخاب فایل", command=browse_file)
+browse_button = tk.Button(root, text="انتخاب فایل", command=browse_file , bg="blue", fg="white")
 browse_button.pack(pady=10)
 
 progress_bar = ttk.Progressbar(root, orient="horizontal", length=300, mode="determinate")
