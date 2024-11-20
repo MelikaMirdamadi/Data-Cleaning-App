@@ -1,3 +1,4 @@
+import openai
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import PyPDF2
@@ -10,16 +11,69 @@ import json
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 import langdetect
+import functools
+from transformers import LongformerTokenizer
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+
 
 class PersianTextCleaner:
     def __init__(self):
         self.normalizer = Normalizer()
         self.vectorizer = TfidfVectorizer(max_df=0.95, min_df=2, stop_words=self.get_persian_stop_words())
-         # تنظیمات تشخیص محتوای تکراری
         self.similarity_threshold = 0.8
         self.min_chunk_length = 100
         self.stored_chunks = set()
+        # Initialize tokenizer for chunking
+        self.model_name = "allenai/longformer-base-4096"
+        self.tokenizer = self.get_tokenizer(self.model_name)
     
+    #Chunking function
+    @functools.lru_cache()
+    def get_tokenizer(self, model_name):
+        return LongformerTokenizer.from_pretrained(model_name)
+    
+    def chunk_text(self, text, max_chunk_size=728, chunk_overlap=20, min_chunk_size=25):
+        """Split text into chunks using Longformer tokenizer."""
+        splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
+            self.tokenizer,
+            chunk_size=max_chunk_size,
+            chunk_overlap=chunk_overlap
+        )
+        chunks = splitter.split_text(text)
+        return self.fix_token_wise_length(chunks, self.tokenizer, max_chunk_size, min_chunk_size)
+    
+    def fix_token_wise_length(self, strs, tokenizer, max_size=728, min_size=25):
+        """Adjust chunk lengths based on token count."""
+        out_list = []
+        tmp = ""
+        s_size = 0
+        last_s_size = 0
+        for i, s in enumerate(strs):
+            cleansed_s = s.lstrip().rstrip()
+            tmp = tmp + cleansed_s
+            tokens = tokenizer.tokenize(cleansed_s)
+            s_size += len(tokens)
+            if s_size > max_size:
+                out_list.append(tmp[:tmp.rfind(" ")])
+                tmp = tmp[tmp.rfind(" ") + 1:] + "\n"
+                s_size = len(tokenizer.tokenize(tmp))
+            elif s_size < min_size:
+                if i > 0 and (last_s_size + s_size <= max_size):
+                    out_list[-1] += "\n" + tmp
+                    last_s_size += s_size
+                    tmp = ""
+                    s_size = 0
+                else:
+                    tmp += "\n"
+            else:
+                out_list.append(tmp)
+                last_s_size = s_size
+                tmp = ""
+                s_size = 0
+        if tmp:
+            out_list.append(tmp)
+        return out_list
     
     #duplicate 
     def find_duplicate_chunks(self, text, chunk_size=200, overlap=100):
@@ -353,39 +407,44 @@ class PersianTextCleaner:
             return text
 
     def clean_text(self, text):
-        """تابع اصلی پاکسازی با قابلیت حذف محتوای تکراری"""
+        """Main cleaning function with chunking capability"""
         if not text.strip():
-            return ""
+            return "", []
 
-        # نرمال‌سازی اولیه
+        # Initial normalization
         text = self.normalizer.normalize(text)
         
-        # حذف فهرست مطالب
+        # Remove table of contents
         text = self.remove_table_of_contents(text)
         
-        # حذف سرصفحه و پاصفحه
+        # Remove headers and footers
         text = self.remove_headers_footers(text)
         
-        # حذف محتوای تکراری
+        # Remove duplicate content
         text = self.remove_duplicate_content(text)
         
-        # استخراج محتوای اصلی
+        # Extract main content
         text = self.extract_main_content(text)
         
-        # نرمال‌سازی کاراکترها
+        # Normalize characters
         text = self.normalize_persian_characters(text)
         
-        # پاکسازی نمادها
+        # Clean symbols
         text = self.clean_symbols(text)
         
-        # پاکسازی فضاهای خالی
+        # Remove extra whitespace
         text = self.remove_extra_whitespace(text)
         
-        # رفع مشکل نیم‌فاصله
+        # Fix half-space issues
         text = re.sub(r'‌+', '‌', text)
         text = re.sub(r'\s*‌\s*', '‌', text)
         
-        return text
+        # Create chunks from cleaned text
+        chunks = self.chunk_text(text)
+        
+        return text, chunks
+
+    
 
 class PersianDocumentProcessorGUI:
     def __init__(self):
@@ -554,6 +613,7 @@ class PersianDocumentProcessorGUI:
             return text
         except Exception as e:
             raise Exception(f"خطا در خواندن فایل: {str(e)}")
+            
 
     def process_files(self):
         if not self.files:
@@ -566,22 +626,31 @@ class PersianDocumentProcessorGUI:
                 try:
                     self.status_var.set(f"در حال پردازش: {Path(file_path).name}")
                     
-                    # استخراج متن
+                    # Extract text
                     text = self.extract_text(file_path)
                     
-                    # تمیز کردن متن
-                    cleaned_text = self.cleaner.clean_text(text)
+                    # Clean text and get chunks
+                    cleaned_text, chunks = self.cleaner.clean_text(text)
                     
-                    # ذخیره در همان مسیر با پسوند _cleaned
+                    # Detect language
+                    language = self.cleaner.detect_language(cleaned_text)
+                    
+                    # Prepare output data
+                    output_data = {
+                        "filename": Path(file_path).name,
+                        "language": language,
+                        "chunks": chunks
+                    }
+                    
+                    # Save to JSON file
                     output_path = Path(file_path)
-                    output_path = output_path.with_stem(f"{output_path.stem}_cleaned")
+                    output_path = output_path.with_stem(f"{output_path.stem}_processed")
                     output_path = output_path.with_suffix('.json')
                     
-                    # ذخیره نتیجه
                     with open(output_path, 'w', encoding='utf-8') as f:
-                        f.write(cleaned_text)
+                        json.dump(output_data, f, ensure_ascii=False, indent=2)
                     
-                    # بروزرسانی پیشرفت
+                    # Update progress
                     progress = ((i + 1) / total_files) * 100
                     self.progress_var.set(progress)
                     
@@ -591,7 +660,7 @@ class PersianDocumentProcessorGUI:
             self.status_var.set("پردازش تکمیل شد")
             messagebox.showinfo("اتمام", "پردازش همه فایل‌ها با موفقیت انجام شد.")
         
-        # شروع پردازش در thread جداگانه
+        # Start processing in separate thread
         threading.Thread(target=process_thread, daemon=True).start()
 
     def run(self):
@@ -603,4 +672,3 @@ class PersianDocumentProcessorGUI:
 if __name__ == "__main__":
     app = PersianDocumentProcessorGUI()
     app.run()
-    
