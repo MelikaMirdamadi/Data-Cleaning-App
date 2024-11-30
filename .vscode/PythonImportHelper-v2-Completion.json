@@ -1,0 +1,190 @@
+[
+    {
+        "label": "openai",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "openai",
+        "description": "openai",
+        "detail": "openai",
+        "documentation": {}
+    },
+    {
+        "label": "tkinter",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "tkinter",
+        "description": "tkinter",
+        "detail": "tkinter",
+        "documentation": {}
+    },
+    {
+        "label": "ttk",
+        "importPath": "tkinter",
+        "description": "tkinter",
+        "isExtraImport": true,
+        "detail": "tkinter",
+        "documentation": {}
+    },
+    {
+        "label": "filedialog",
+        "importPath": "tkinter",
+        "description": "tkinter",
+        "isExtraImport": true,
+        "detail": "tkinter",
+        "documentation": {}
+    },
+    {
+        "label": "messagebox",
+        "importPath": "tkinter",
+        "description": "tkinter",
+        "isExtraImport": true,
+        "detail": "tkinter",
+        "documentation": {}
+    },
+    {
+        "label": "PyPDF2",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "PyPDF2",
+        "description": "PyPDF2",
+        "detail": "PyPDF2",
+        "documentation": {}
+    },
+    {
+        "label": "docx",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "docx",
+        "description": "docx",
+        "detail": "docx",
+        "documentation": {}
+    },
+    {
+        "label": "re",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "re",
+        "description": "re",
+        "detail": "re",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "Normalizer",
+        "importPath": "hazm",
+        "description": "hazm",
+        "isExtraImport": true,
+        "detail": "hazm",
+        "documentation": {}
+    },
+    {
+        "label": "word_tokenize",
+        "importPath": "hazm",
+        "description": "hazm",
+        "isExtraImport": true,
+        "detail": "hazm",
+        "documentation": {}
+    },
+    {
+        "label": "sent_tokenize",
+        "importPath": "hazm",
+        "description": "hazm",
+        "isExtraImport": true,
+        "detail": "hazm",
+        "documentation": {}
+    },
+    {
+        "label": "threading",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "threading",
+        "description": "threading",
+        "detail": "threading",
+        "documentation": {}
+    },
+    {
+        "label": "json",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "json",
+        "description": "json",
+        "detail": "json",
+        "documentation": {}
+    },
+    {
+        "label": "TfidfVectorizer",
+        "importPath": "sklearn.feature_extraction.text",
+        "description": "sklearn.feature_extraction.text",
+        "isExtraImport": true,
+        "detail": "sklearn.feature_extraction.text",
+        "documentation": {}
+    },
+    {
+        "label": "numpy",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "numpy",
+        "description": "numpy",
+        "detail": "numpy",
+        "documentation": {}
+    },
+    {
+        "label": "langdetect",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "langdetect",
+        "description": "langdetect",
+        "detail": "langdetect",
+        "documentation": {}
+    },
+    {
+        "label": "functools",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "functools",
+        "description": "functools",
+        "detail": "functools",
+        "documentation": {}
+    },
+    {
+        "label": "LongformerTokenizer",
+        "importPath": "transformers",
+        "description": "transformers",
+        "isExtraImport": true,
+        "detail": "transformers",
+        "documentation": {}
+    },
+    {
+        "label": "RecursiveCharacterTextSplitter",
+        "importPath": "langchain.text_splitter",
+        "description": "langchain.text_splitter",
+        "isExtraImport": true,
+        "detail": "langchain.text_splitter",
+        "documentation": {}
+    },
+    {
+        "label": "PersianTextCleaner",
+        "kind": 6,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "class PersianTextCleaner:\n    def __init__(self):\n        self.normalizer = Normalizer()\n        self.vectorizer = TfidfVectorizer(max_df=0.95, min_df=2, stop_words=self.get_persian_stop_words())\n        self.similarity_threshold = 0.8\n        self.min_chunk_length = 100\n        self.stored_chunks = set()\n        # Initialize tokenizer for chunking\n        self.model_name = \"allenai/longformer-base-4096\"\n        self.tokenizer = self.get_tokenizer(self.model_name)",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "PersianDocumentProcessorGUI",
+        "kind": 6,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "class PersianDocumentProcessorGUI:\n    def __init__(self):\n        self.root = tk.Tk()\n        self.root.title(\"برنامه پاکسازی متن فارسی\")\n        self.root.geometry(\"800x600\")\n        self.root.configure(bg='#f0f0f0')\n        # تنظیم فونت برای نمایش صحیح فارسی\n        default_font = ('Tahoma', 10)\n        self.root.option_add('*Font', default_font)\n        # متغیرهای مورد نیاز",
+        "detail": "app",
+        "documentation": {}
+    }
+]

@@ -14,7 +14,7 @@ import langdetect
 import functools
 from transformers import LongformerTokenizer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-
+import pandas as pd
 
 
 class PersianTextCleaner:
@@ -110,7 +110,6 @@ class PersianTextCleaner:
         if not text.strip():
             return text
             
-        # تقسیم متن به پاراگراف‌ها
         paragraphs = text.split('\n')
         unique_paragraphs = []
         
@@ -119,7 +118,6 @@ class PersianTextCleaner:
                 unique_paragraphs.append(para)
                 continue
                 
-            # بررسی شباهت با پاراگراف‌های قبلی
             is_duplicate = False
             normalized_para = self.normalizer.normalize(para)
             
@@ -178,8 +176,11 @@ class PersianTextCleaner:
             r'^.*?(?:\s*…\s*){2,}.*?$',
             r'^.*?(?:\.{3,}|…{2,}).*?$',
             r'^.*?\s*\.\s*\.\s*\.*\s*.*?$',
+       
         ]
+       
         
+
         for i, line in enumerate(lines):
             line = line.strip()
             
@@ -214,6 +215,7 @@ class PersianTextCleaner:
         
         text = '\n'.join(cleaned_lines)
         text = re.sub(r'^.*?(?:\s*…\s*){2,}.*?$', '', text, flags=re.MULTILINE)
+        
         return text
 
     def remove_headers_footers(self, text):
@@ -221,11 +223,10 @@ class PersianTextCleaner:
         lines = text.split('\n')
         cleaned_lines = []
         
-        # شمارنده برای تشخیص بخش متادیتا
         metadata_section_active = True
         consecutive_content_lines = 0
         
-        # الگوهای متادیتا با دقت بالاتر
+        
         metadata_patterns = {
             'author': [
                 r'^.*?(?:نویسنده|مؤلف|تالیف|نگارنده|گردآورنده|تدوین|پدیدآور|به\s*قلم)[:\s]+.*$',
@@ -275,7 +276,8 @@ class PersianTextCleaner:
             r'^(?:فصل|بخش|مقدمه|پیشگفتار|فهرست|درباره|چکیده)\s*(?:\d+)?[:]*\s*$',
             r'^\s*[-_=*]{3,}\s*$',  # خط جداکننده
             r'^\s*\d+\s*$',  # شماره صفحه تنها
-            r'^.{200,}$'  # خط طولانی (احتمالاً متن اصلی)
+            r'^.{200,}$'
+              
         ]
         
         def is_metadata_line(line):
@@ -291,7 +293,6 @@ class PersianTextCleaner:
         
         def is_content_line(line):
             """Check if a line appears to be actual content."""
-            # خط باید طولانی باشد و شامل چندین کلمه
             words = len(line.split())
             return len(line) > 50 and words > 10 and not is_metadata_line(line)
         
@@ -301,7 +302,6 @@ class PersianTextCleaner:
             if not line:
                 continue
             
-            # بررسی پایان بخش متادیتا
             if metadata_section_active:
                 if is_end_of_metadata(line) or is_content_line(line):
                     consecutive_content_lines += 1
@@ -311,13 +311,11 @@ class PersianTextCleaner:
                     consecutive_content_lines = 0
                     continue
                 else:
-                    # خطوط کوتاه یا مشکوک در بخش متادیتا را حذف می‌کنیم
+                    
                     if len(line) < 40 or not re.search(r'[.!؟،]', line):
                         continue
             
-            # اگر از بخش متادیتا خارج شدیم، خط را نگه می‌داریم
             if not metadata_section_active:
-                # حذف خطوط تکی عدد (شماره صفحه)
                 if not re.match(r'^\s*\d+\s*$', line):
                     cleaned_lines.append(line)
         
@@ -334,6 +332,7 @@ class PersianTextCleaner:
             else:
                 cleaned = re.sub(r'[!؟\\/|،,;:\[\](){}\"\'`](?:\s*[!؟\\/|،,;:\[\](){}\"\'`])*', ' ', segment)
                 cleaned = re.sub(r'(?<!\d)\.+(?!\d)', ' ', cleaned)
+                cleaned = re.sub(r'•', ' ', cleaned)
                 cleaned_segments.append(cleaned)
         
         return ''.join(cleaned_segments)
@@ -449,121 +448,52 @@ class PersianTextCleaner:
 class PersianDocumentProcessorGUI:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("برنامه پاکسازی متن فارسی")
+        self.root.title("Data Cleaning App")
         self.root.geometry("800x600")
         self.root.configure(bg='#f0f0f0')
-        
-        # تنظیم فونت برای نمایش صحیح فارسی
-        default_font = ('Tahoma', 10)
-        self.root.option_add('*Font', default_font)
-        
-        # متغیرهای مورد نیاز
         self.files = []
         self.progress_var = tk.DoubleVar()
         self.status_var = tk.StringVar(value="آماده برای پردازش")
-        
-        # Initialize processor components
         self.cleaner = PersianTextCleaner()
-        
         self.create_widgets()
-        
+
     def create_widgets(self):
-        # ایجاد فریم اصلی
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # عنوان برنامه
-        title_label = ttk.Label(
-            main_frame, 
-            text="پردازشگر متون فارسی", 
-            font=('Tahoma', 14, 'bold')
-        )
+        title_label = ttk.Label(main_frame, text="برنامه پاكسازي داده", font=('Tahoma', 14, 'bold'))
         title_label.pack(pady=10)
-        
-        # دکمه‌های انتخاب فایل
         file_frame = ttk.Frame(main_frame)
         file_frame.pack(fill=tk.X, pady=5)
-        
-        ttk.Button(
-            file_frame, 
-            text="انتخاب فایل", 
-            command=self.select_files,
-            style='Accent.TButton'
-        ).pack(side=tk.LEFT, padx=5)
-        
-        ttk.Button(
-            file_frame, 
-            text="انتخاب پوشه", 
-            command=self.select_directory
-        ).pack(side=tk.LEFT)
-        
-        # لیست فایل‌ها
+        ttk.Button(file_frame, text="انتخاب فایل", command=self.select_files, style='Accent.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(file_frame, text="انتخاب پوشه", command=self.select_directory).pack(side=tk.LEFT)
         list_frame = ttk.LabelFrame(main_frame, text="فایل‌های انتخاب شده", padding="5")
         list_frame.pack(fill=tk.BOTH, expand=True, pady=5)
-        
-        self.files_listbox = tk.Listbox(
-            list_frame, 
-            selectmode=tk.EXTENDED, 
-            height=10,
-            font=('Tahoma', 9)
-        )
+        self.files_listbox = tk.Listbox(list_frame, selectmode=tk.EXTENDED, height=10, font=('Tahoma', 9))
         self.files_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        
         scrollbar = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.files_listbox.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.files_listbox.configure(yscrollcommand=scrollbar.set)
-        
-        # نوار پیشرفت
         progress_frame = ttk.Frame(main_frame)
         progress_frame.pack(fill=tk.X, pady=5)
-        
-        self.progress_bar = ttk.Progressbar(
-            progress_frame,
-            variable=self.progress_var,
-            maximum=100,
-            mode='determinate'
-        )
+        self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_var, maximum=100, mode='determinate')
         self.progress_bar.pack(fill=tk.X)
-        
-        # برچسب وضعیت
-        self.status_label = ttk.Label(
-            main_frame, 
-            textvariable=self.status_var,
-            font=('Tahoma', 9)
-        )
+        self.status_label = ttk.Label(main_frame, textvariable=self.status_var, font=('Tahoma', 9))
         self.status_label.pack(pady=5)
-        
-        # دکمه‌های عملیات
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(fill=tk.X, pady=5)
-        
-        ttk.Button(
-            button_frame, 
-            text="شروع پردازش", 
-            command=self.process_files,
-            style='Accent.TButton'
-        ).pack(side=tk.LEFT, padx=5)
-        
-        ttk.Button(
-            button_frame, 
-            text="پاک کردن لیست", 
-            command=self.clear_list
-        ).pack(side=tk.LEFT)
-        
-        ttk.Button(
-            button_frame, 
-            text="خروج", 
-            command=self.root.quit
-        ).pack(side=tk.RIGHT)
+        ttk.Button(button_frame, text="شروع پردازش", command=self.process_files, style='Accent.TButton').pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="پاک کردن لیست", command=self.clear_list).pack(side=tk.LEFT)
+        ttk.Button(button_frame, text="خروج", command=self.root.quit).pack(side=tk.RIGHT)
 
     def select_files(self):
         files = filedialog.askopenfilenames(
             title="انتخاب فایل‌ها",
             filetypes=[
-                ("همه فایل‌های پشتیبانی شده", "*.pdf;*.docx;*.doc;*.txt"),
+                ("همه فایل‌های پشتیبانی شده", "*.pdf;*.docx;*.doc;*.txt;*.xlsx"),
                 ("PDF", "*.pdf"),
                 ("Word", "*.docx;*.doc"),
-                ("Text", "*.txt")
+                ("Text", "*.txt"),
+                ("Excel", "*.xlsx")
             ]
         )
         self.add_files(files)
@@ -573,7 +503,7 @@ class PersianDocumentProcessorGUI:
         if directory:
             path = Path(directory)
             files = []
-            for ext in ['.pdf', '.docx', '.doc', '.txt']:
+            for ext in ['.pdf', '.docx', '.doc', '.txt', '.xlsx']:
                 files.extend(path.glob(f'**/*{ext}'))
             self.add_files(files)
 
@@ -590,85 +520,92 @@ class PersianDocumentProcessorGUI:
         self.status_var.set("آماده برای پردازش")
 
     def extract_text(self, file_path):
-        """Extract text from PDF or Word file."""
+        """Extract text from PDF, Word, or Text file."""
         file_path = Path(file_path)
         text = ""
-        
-        try:
-            if file_path.suffix.lower() == '.pdf':
-                with open(file_path, 'rb') as file:
-                    pdf_reader = PyPDF2.PdfReader(file)
-                    for page in pdf_reader.pages:
-                        text += page.extract_text() + "\n"
-            
-            elif file_path.suffix.lower() in ['.docx', '.doc']:
-                doc = docx.Document(file_path)
-                for paragraph in doc.paragraphs:
-                    text += paragraph.text + "\n"
-            
-            elif file_path.suffix.lower() == '.txt':
-                with open(file_path, 'r', encoding='utf-8') as file:
-                    text = file.read()
-            
-            return text
-        except Exception as e:
-            raise Exception(f"خطا در خواندن فایل: {str(e)}")
-            
+
+        if file_path.suffix.lower() == '.pdf':
+            with open(file_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    text += page.extract_text() + "\n"
+
+        elif file_path.suffix.lower() in ['.docx', '.doc']:
+            doc = docx.Document(file_path)
+            for paragraph in doc.paragraphs:
+                text += paragraph.text + "\n"
+
+        elif file_path.suffix.lower() == '.txt':
+            with open(file_path, 'r', encoding='utf-8') as file:
+                text = file.read()
+
+        return text
+
+    def extract_excel_data(self, file_path):
+        """Extract data from Excel file and convert it to JSON."""
+        df = pd.read_excel(file_path, engine="openpyxl")
+        template = {"file_name": Path(file_path).stem, "languages": "eng+fas", "Chunk": None}
+        state = []
+        chunk_raw_size = 6
+        perv_faq = ""
+
+        for index_raw, (_, row) in enumerate(df.iterrows()):
+            question = row.get("سوال", "")
+            answer = row.get("پاسخ", "")
+            perv_faq += f"\nQuestion : {question} -> Answer : {answer}" + "-" * 15
+            if ((index_raw + 1) % chunk_raw_size) == 0:
+                state.append(perv_faq.strip())
+                perv_faq = ""
+
+        template["Chunk"] = list(set(state))
+        return template
 
     def process_files(self):
         if not self.files:
             messagebox.showwarning("هشدار", "لطفاً ابتدا فایل‌ها را انتخاب کنید.")
             return
-            
+
         def process_thread():
             total_files = len(self.files)
             for i, file_path in enumerate(self.files):
                 try:
                     self.status_var.set(f"در حال پردازش: {Path(file_path).name}")
-                    
-                    # Extract text
-                    text = self.extract_text(file_path)
-                    
-                    # Clean text and get chunks
-                    cleaned_text, chunks = self.cleaner.clean_text(text)
-                    
-                    # Detect language
-                    language = self.cleaner.detect_language(cleaned_text)
-                    
-                    # Prepare output data
-                    output_data = {
-                        "filename": Path(file_path).name,
-                        "language": language,
-                        "chunks": chunks
-                    }
-                    
+
+                    if file_path.endswith(".xlsx"):
+                        # Process Excel file
+                        output_data = self.extract_excel_data(file_path)
+                    else:
+                        # Process text-based files
+                        text = self.extract_text(file_path)
+                        cleaned_text, chunks = self.cleaner.clean_text(text)
+                        language = self.cleaner.detect_language(cleaned_text)
+                        output_data = {
+                            "filename": Path(file_path).name,
+                            "language": language,
+                            "chunks": chunks
+                        }
+
                     # Save to JSON file
-                    output_path = Path(file_path)
-                    output_path = output_path.with_stem(f"{output_path.stem}_processed")
-                    output_path = output_path.with_suffix('.json')
-                    
+                    output_path = Path(file_path).with_stem(f"{Path(file_path).stem}_processed").with_suffix('.json')
                     with open(output_path, 'w', encoding='utf-8') as f:
                         json.dump(output_data, f, ensure_ascii=False, indent=2)
-                    
+
                     # Update progress
                     progress = ((i + 1) / total_files) * 100
                     self.progress_var.set(progress)
-                    
+
                 except Exception as e:
                     messagebox.showerror("خطا", f"خطا در پردازش {Path(file_path).name}:\n{str(e)}")
-            
+
             self.status_var.set("پردازش تکمیل شد")
             messagebox.showinfo("اتمام", "پردازش همه فایل‌ها با موفقیت انجام شد.")
-        
-        # Start processing in separate thread
+
         threading.Thread(target=process_thread, daemon=True).start()
 
     def run(self):
-        # تنظیم استایل دکمه‌ها
-        style = ttk.Style()
-        style.configure('Accent.TButton', font=('Tahoma', 10, 'bold'))
-        self.root .mainloop()
-        
+        self.root.mainloop()
+
+
 if __name__ == "__main__":
     app = PersianDocumentProcessorGUI()
     app.run()
