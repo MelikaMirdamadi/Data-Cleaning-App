@@ -1,7 +1,32 @@
 
 import openai
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox , simpledialog
+# Function to get API key from the user
+
+
+# def get_api_key():
+#     root = tk.Tk()
+#     root.withdraw()  # Hide the main window
+#     api_key = simpledialog.askstring("OpenAI API Key", "Please enter your OpenAI API key:")
+#     if not api_key:
+#         raise ValueError("API key is required to proceed.")
+#     return api_key
+
+# Set OpenAI API key
+# openai.api_key = get_api_key()
+
+
+
+# Configure OpenAI API key
+# openai.api_key = "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"
+
+api_key=input("Please enter your openAI API key:")
+openai.api_key=api_key
+
+    
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox , simpledialog
 import PyPDF2
 import docx
 import re
@@ -18,7 +43,11 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import pandas as pd
 
 
+
+
+
 class PersianTextCleaner:
+    
     def __init__(self):
         self.normalizer = Normalizer()
         self.vectorizer = TfidfVectorizer(max_df=0.95, min_df=2, stop_words=self.get_persian_stop_words())
@@ -28,6 +57,7 @@ class PersianTextCleaner:
         # Initialize tokenizer for chunking
         self.model_name = "allenai/longformer-base-4096"
         self.tokenizer = self.get_tokenizer(self.model_name)
+    
     
     #Chunking function
     @functools.lru_cache()
@@ -39,8 +69,7 @@ class PersianTextCleaner:
         splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
             self.tokenizer,
             chunk_size=max_chunk_size,
-            chunk_overlap=chunk_overlap,
-            
+            chunk_overlap=chunk_overlap
         )
         chunks = splitter.split_text(text)
         return self.fix_token_wise_length(chunks, self.tokenizer, max_chunk_size, min_chunk_size)
@@ -322,7 +351,7 @@ class PersianTextCleaner:
                     cleaned_lines.append(line)
         
         return '\n'.join(cleaned_lines)
-
+        
     def clean_symbols(self, text):
         """Clean symbols while preserving mathematical expressions."""
         segments = re.split(r'(\s+)', text)
@@ -387,6 +416,8 @@ class PersianTextCleaner:
             
         return text
 
+    
+    
     def extract_main_content(self, text):
         """Extract main content using TF-IDF scores."""
         sentences = sent_tokenize(text)
@@ -406,7 +437,31 @@ class PersianTextCleaner:
             return ' '.join(selected_sentences)
         except:
             return text
+    
+    
+    
+    def send_to_gpt(self, text, max_tokens=3000, temperature=0.7):
+        """Send text to GPT for rewriting and correction."""
+        try:
+            response = openai.Completion.create(
+                engine="text-davinci-003",
+                prompt=f"""Rewrite and clean this Persian text: {text}.
+                - Remove sections like "فهرست مطالب" and "منابع" and "مراجع".
+                - Remove metadata like author, publisher, price, or ISBN.
+                - Remove unnecessary symbols like [ ], ;, and extra spaces.
+                - Ensure only the main content remains and is clean, consistent, and ready for use.
+                """,
+                
+                max_tokens=max_tokens,
+                temperature=temperature,
+                n=1
+            )
+            return response.choices[0].text.strip()
+        except Exception as e:
+            print(f"Error calling OpenAI API: {e}")
+            return text
 
+    # متد clean_text برای پاکسازی داده‌ها
     def clean_text(self, text):
         """Main cleaning function with chunking capability"""
         if not text.strip():
@@ -427,6 +482,15 @@ class PersianTextCleaner:
         # Extract main content
         text = self.extract_main_content(text)
         
+        # Send text to GPT for rewriting and correction
+        text = self.send_to_gpt(text)
+        
+        # Final cleanup after GPT processing
+        text = self.remove_table_of_contents(text)
+        text = self.remove_headers_footers(text)
+        text = self.clean_symbols(text)
+
+        
         # Normalize characters
         text = self.normalize_persian_characters(text)
         
@@ -444,7 +508,6 @@ class PersianTextCleaner:
         chunks = self.chunk_text(text)
         
         return text, chunks
-
     
 
 class PersianDocumentProcessorGUI:
