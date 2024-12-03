@@ -19,7 +19,7 @@ from tkinter import ttk, filedialog, messagebox , simpledialog
 
 
 # Configure OpenAI API key
-# openai.api_key = "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"
+# openai.api_key = ""
 
 api_key=input("Please enter your openAI API key:")
 openai.api_key=api_key
